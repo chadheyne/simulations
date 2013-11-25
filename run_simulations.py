@@ -34,16 +34,21 @@ def simulate(observation, iteration, full_price=False):
 
     outputs = pd.Series(index=['P{}_{}'.format(iteration, i) for i in range(1, 13)])
     initial, ret, vol = observation['S0'], observation['u'], observation['sigma']
-    start_date, end_date = observation['date'] + DateOffset(months=1), observation['date'] + DateOffset(months=12)
+    start_date, end_date = (observation['date'] + DateOffset(months=1),
+                            observation['date'] + DateOffset(months=12))
+    opt_grant, st_grant = (observation['grantdate_opt'].month,
+                           observation['grantdate_st'].month)
 
-    for index, month in enumerate(pd.date_range(start=start_date, end=end_date, freq='M'), start=1):
-        initial = initial * exp(((ret - vol ** 2 / 2) * (1 / 12) + vol * random() * sqrt(1 / 12)))
+    for index in range(1, 13):
+        initial = initial * exp(((ret - vol ** 2 / 2) * (1 / 12) +
+                                 vol * random() * sqrt(1 / 12)))
         outputs['P{}_{}'.format(iteration, index)] = initial
 
-    observation['P{}_month_st'.format(iteration)] = outputs[observation['grantdate_st'].month - 1]
-    observation['P{}_month_opt'.format(iteration)] = outputs[observation['grantdate_opt'].month - 1]
-    observation['P{}_year'.format(iteration)] = outputs['P{}_12'.format(iteration)]
-    return observation if not full_price else observation.combine_first(outputs)
+    observation['P{}_month_st'.format(iteration)] = outputs[st_grant - 1]
+    observation['P{}_month_opt'.format(iteration)] = outputs[opt_grant - 1]
+    observation['P{}_year'.format(iteration)] = outputs[-1]
+    return (observation if not full_price
+            else observation.combine_first(outputs))
 
 
 def in_range(observation):
@@ -59,14 +64,17 @@ def in_range(observation):
 
 def run_simulations(company_data, iterations=50, full_prices=False):
     '''
-        All of the calls to have axis=1 in order to work with row data. Otherwise it will run simulations over columns.
+        All of the calls to have axis=1 in order to work with row data.
+        Otherwise it will run simulations over columns.
     '''
     np.random.seed(15)
     predictions = pd.Series(('P{0}_{1}'.format(i, j)
-                             for i in range(1, iterations+1) for j in ('month_st', 'month_opt', 'year')))
+                             for i in range(1, iterations+1)
+                             for j in ('month_st', 'month_opt', 'year')))
     if full_prices:
         predictions2 = pd.Series(('P{0}_{1}'.format(i, j)
-                                 for i in range(1, iterations+1) for j in range(1, 13)))
+                                 for i in range(1, iterations+1)
+                                 for j in range(1, 13)))
     else:
         predictions2 = []
 
@@ -78,13 +86,15 @@ def run_simulations(company_data, iterations=50, full_prices=False):
         print("Running simulation {} of {}:\n  Started at {}".format(iteration,
               iterations, datetime.now().strftime("%H:%M:%S:%f")), end="")
 
-        simulated_data.update(simulated_data.apply(simulate, axis=1, args=(iteration, full_prices)))
+        simulated_data.update(simulated_data.apply(simulate, axis=1,
+                                                   args=(iteration, full_prices)))
         print("  Ended at {}".format(datetime.now().strftime("%H:%M:%S:%f")))
 
-    simulated_data.date = pd.to_datetime(simulated_data.date)
-    simulated_data.date = simulated_data.date.apply(lambda date: date.strftime("%d/%m/%Y"))
-    simulated_data.grantdate_opt = simulated_data.grantdate_opt.apply(lambda date: date.strftime("%m/%d/%Y"))
-    simulated_data.grantdate_st = simulated_data.grantdate_st.apply(lambda date: date.strftime("%m/%d/%Y"))
+    dateformat = lambda date: date.strftime("%m/%d/%Y")
+
+    simulated_data.date = simulated_data.date.apply(dateformat)
+    simulated_data.grantdate_opt = simulated_data.grantdate_opt.apply(dateformat)
+    simulated_data.grantdate_st = simulated_data.grantdate_st.apply(dateformat)
 
     return simulated_data
 
@@ -110,7 +120,8 @@ def write_file(simulated_data, filename='outputs_{}.csv'):
     print_dict = {'file': filename,
                   'cols': len(simulated_data.columns),
                   'obs': len(simulated_data)}
-    print("Finished writing {file} with {cols} columns and {obs} observations".format(**print_dict))
+    print(("Finished writing {file} with {cols} columns "
+           "and {obs} observations".format(**print_dict)))
 
 
 def main():
