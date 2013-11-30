@@ -18,7 +18,7 @@ def do_run():
 
     print("Running simulations and predicting data!")
     predicted_data = create_predictions(regression_results)
-    merged_data = merge_data(predicted_data, company_data)
+    merged_data = merge_data(predicted_data, company_data, full_prices=True)
 
     print("Inferring number of grants predicted!")
     full_data = infer_grants(merged_data, write=True)
@@ -33,20 +33,20 @@ def create_plot(data, company=10104, columns=(10, 20, 30, 40, 50)):
     dates = pd.date_range(start="01/01/2008",
                           end="12/31/2012",
                           freq="M", name="dates")
-    columns = list(map('P{}'.format, columns))
-    ts = pd.DataFrame(index=dates,
-                      columns=columns)
+    columns = map('P{}'.format, columns)
+    ts = pd.DataFrame(index=dates)
+    conditions = (data.permno == company) & (data.security == 1)
     for col in columns:
-        ts[col] = data.ix[company, col+'_1':col+'_12'].stack().values
+        ts[col] = data.loc[conditions, col+'_1':col+'_12'].stack().values
     axis = ts.plot(figsize=(20, 20),
                    x_compat=True,
                    title="Predictions for Permno {}".format(company))
     axis.set_ylabel("Price prediction")
     axis.set_xlabel("Date")
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.yaxis.tick_left()
-    ax.xaxis.tick_bottm()
+    axis.spines['top'].set_visible(False)
+    axis.spines['right'].set_visible(False)
+    axis.yaxis.tick_left()
+    axis.xaxis.tick_bottom()
 
 
 if __name__ == "__main__":
